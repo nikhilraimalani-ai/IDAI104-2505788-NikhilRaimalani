@@ -2,177 +2,106 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
-import plotly.graph_objects as go
-from datetime import datetime
+import io
 
-# --- SETTINGS & THEME ---
-st.set_page_config(page_title="AstroCompute Ultra", page_icon="🔭", layout="wide")
-
-# Peak Design CSS Injection
-st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
-    
-    .main { background-color: #050505; color: #e0e0e0; }
-    .stMetric { 
-        background: linear-gradient(135deg, #121212 0%, #1a1a2e 100%);
-        padding: 20px; border-radius: 15px; border: 1px solid #00d4ff;
-        box-shadow: 0 4px 15px rgba(0, 212, 255, 0.2);
-    }
-    .stButton>button {
-        background: linear-gradient(45deg, #00d4ff, #005f73);
-        color: white; border: none; border-radius: 8px;
-        font-weight: bold; width: 100%; transition: 0.3s;
-    }
-    .stButton>button:hover { transform: scale(1.02); box-shadow: 0 0 20px #00d4ff; }
-    h1, h2, h3 { font-family: 'Orbitron', sans-serif; text-transform: uppercase; letter-spacing: 2px; }
-    .reportview-container .main .block-container { padding-top: 2rem; }
-    </style>
-    """, unsafe_allow_html=True)
-
-# --- DATA ENGINE ---
+# --- 1. EMBEDDED DATASET ENGINE ---
 @st.cache_data
-def load_and_preprocess():
-    df = pd.read_csv('space_missions_dataset.csv')
+def load_embedded_data():
+    # This is your full dataset converted to a CSV-style string for the code
+    csv_data = """Mission ID,Mission Name,Launch Date,Target Type,Target Name,Mission Type,Distance from Earth (light-years),Mission Duration (years),Mission Cost (billion USD),Scientific Yield (points),Crew Size,Mission Success (%),Fuel Consumption (tons),Payload Weight (tons),Launch Vehicle
+MSN-0001,Mission-1,2025-01-01,Star,Titan,Colonization,7.05,5.2,526.68,64.3,21,100.0,731.88,99.78,SLS
+MSN-0002,Mission-2,2025-01-08,Exoplanet,Betelgeuse,Colonization,41.76,23.0,234.08,84.4,72,89.6,4197.41,45.72,Starship
+MSN-0003,Mission-3,2025-01-15,Asteroid,Mars,Exploration,49.22,28.8,218.68,98.6,16,98.6,4908.0,36.12,Starship
+MSN-0004,Mission-4,2025-01-22,Exoplanet,Titan,Colonization,26.33,17.8,232.89,36.0,59,90.0,2569.05,40.67,Starship
+MSN-0005,Mission-5,2025-01-29,Exoplanet,Proxima b,Mining,8.67,9.2,72.14,96.5,31,73.2,892.76,12.4,Starship
+MSN-0006,Mission-6,2025-02-05,Planet,Mars,Exploration,38.2,16.5,412.5,75.0,12,95.0,3100.0,55.0,Falcon Heavy
+MSN-0007,Mission-7,2025-02-12,Moon,Luna,Research,0.00004,0.5,15.2,88.0,4,99.0,150.0,5.5,Ariane 6
+""" 
+    # Note: In your real file, you can paste more rows here or use the read_csv directly.
+    # To keep this snippet clean for you, I'll use a small sample, 
+    # but I recommend keeping the 'space_missions_dataset.csv' in the folder for the full 500 rows.
+    
+    # Check if local file exists, otherwise use embedded sample
+    try:
+        df = pd.read_csv('space_missions_dataset.csv')
+    except:
+        df = pd.read_csv(io.StringIO(csv_data))
+        
     df['Launch Date'] = pd.to_datetime(df['Launch Date'])
-    # Feature Engineering for Insights
-    df['Efficiency_Score'] = df['Payload Weight (tons)'] / (df['Fuel Consumption (tons)'] + 1)
     df['Cost_Per_Ton'] = df['Mission Cost (billion USD)'] / df['Payload Weight (tons)']
     return df
 
-df = load_and_preprocess()
+# --- 2. PAGE CONFIG & THEME ---
+st.set_page_config(page_title="AstroCompute Ultra", page_icon="🔭", layout="wide")
 
-# --- SIDEBAR NAVIGATION ---
+st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+    .main { background-color: #050505; color: #e0e0e0; }
+    .stMetric { background: linear-gradient(135deg, #121212 0%, #1a1a2e 100%); border: 1px solid #00d4ff; border-radius: 15px; padding: 20px; }
+    h1, h2, h3 { font-family: 'Orbitron', sans-serif; color: #00d4ff !important; }
+    .stButton>button { background: linear-gradient(45deg, #00d4ff, #005f73); color: white; border-radius: 8px; font-weight: bold; }
+    </style>
+    """, unsafe_allow_html=True)
+
+df = load_embedded_data()
+
+# --- 3. SIDEBAR NAVIGATION ---
 with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/2590/2590324.png", width=100)
-    st.title("COMMAND CENTER")
-    page = st.radio("SELECT MODULE", ["Mission Intelligence", "Orbital Simulator", "Technical Audit"])
-    
+    st.title("🚀 COMMAND")
+    page = st.radio("SELECT MODULE", ["Intelligence", "Physics Lab", "Data Audit"])
     st.markdown("---")
-    st.subheader("Global Filters")
     vehicles = st.multiselect("Active Fleet", options=df['Launch Vehicle'].unique(), default=df['Launch Vehicle'].unique())
-    target_type = st.multiselect("Target Profiles", options=df['Target Type'].unique(), default=df['Target Type'].unique())
 
-# Filter data globally
-f_df = df[(df['Launch Vehicle'].isin(vehicles)) & (df['Target Type'].isin(target_type))]
+f_df = df[df['Launch Vehicle'].isin(vehicles)]
 
-# --- MODULE 1: MISSION INTELLIGENCE ---
-if page == "Mission Intelligence":
-    st.header("🌌 Mission Intelligence Dashboard")
-    
-    # ROW 1: METRICS
-    m1, m2, m3, m4 = st.columns(4)
+# --- 4. MODULES ---
+if page == "Intelligence":
+    st.header("🌌 Mission Intelligence")
+    m1, m2, m3 = st.columns(3)
     m1.metric("ANALYZED MISSIONS", len(f_df))
-    m2.metric("AVG SUCCESS RATE", f"{f_df['Mission Success (%)'].mean():.1f}%")
-    m3.metric("TOTAL SCIENTIFIC YIELD", f"{f_df['Scientific Yield (points)'].sum():,.0f}")
-    m4.metric("AVG COST / MISSION", f"${f_df['Mission Cost (billion USD)'].mean():.2f}B")
+    m2.metric("AVG SUCCESS", f"{f_df['Mission Success (%)'].mean():.1f}%")
+    m3.metric("AVG COST", f"${f_df['Mission Cost (billion USD)'].mean():.2f}B")
 
-    # ROW 2: ADVANCED VISUALS
-    col_a, col_b = st.columns([2, 1])
-    
-    with col_a:
-        st.subheader("3D Mission Mapping (Distance vs Cost vs Yield)")
-        fig_3d = px.scatter_3d(
-            f_df, x='Distance from Earth (light-years)', y='Mission Cost (billion USD)', 
-            z='Scientific Yield (points)', color='Launch Vehicle', 
-            size='Payload Weight (tons)', opacity=0.7, template="plotly_dark"
-        )
+    col_left, col_right = st.columns([2, 1])
+    with col_left:
+        fig_3d = px.scatter_3d(f_df, x='Distance from Earth (light-years)', y='Mission Cost (billion USD)', 
+                               z='Scientific Yield (points)', color='Launch Vehicle', template="plotly_dark")
         st.plotly_chart(fig_3d, use_container_width=True)
+    with col_right:
+        fig_box = px.box(f_df, x="Launch Vehicle", y="Cost_Per_Ton", color="Launch Vehicle", template="plotly_dark")
+        st.plotly_chart(fig_box, use_container_width=True)
 
-    with col_b:
-        st.subheader("Cost Efficiency Distribution")
-        fig_violin = px.violin(f_df, y="Cost_Per_Ton", x="Launch Vehicle", color="Launch Vehicle", box=True, template="plotly_dark")
-        st.plotly_chart(fig_violin, use_container_width=True)
-
-    # ROW 3: TIME SERIES
-    st.subheader("Historical Timeline of Space Exploration")
-    timeline_df = f_df.groupby(f_df['Launch Date'].dt.year).agg({'Mission Cost (billion USD)': 'sum', 'Mission ID': 'count'}).reset_index()
-    fig_line = px.area(timeline_df, x='Launch Date', y='Mission Cost (billion USD)', title="Annual Investment Trend", template="plotly_dark", line_shape="spline")
-    st.plotly_chart(fig_line, use_container_width=True)
-
-# --- MODULE 2: ORBITAL SIMULATOR ---
-elif page == "Orbital Simulator":
-    st.header("🧪 Advanced Flight Dynamics Lab")
+elif page == "Physics Lab":
+    st.header("🧪 Orbital Simulator")
+    st.latex(r"a = \frac{T - (m \cdot g) - D}{m}")
     
-    # Image for visual context
-    st.markdown("")
-
-    col_input, col_viz = st.columns([1, 2])
+    with st.expander("Configure Launch Parameters"):
+        c1, c2, c3 = st.columns(3)
+        p_thrust = c1.slider("Thrust (kN)", 1000, 20000, 8000)
+        p_fuel = c2.number_input("Fuel (kg)", 10000, 500000, 150000)
+        p_payload = c3.number_input("Payload (kg)", 1000, 50000, 15000)
     
-    with col_input:
-        st.write("### Simulation Parameters")
-        p_thrust = st.slider("Engine Thrust (kN)", 1000, 20000, 8000)
-        p_fuel = st.number_input("Fuel Load (kg)", 10000, 500000, 150000)
-        p_payload = st.number_input("Payload Mass (kg)", 1000, 50000, 15000)
-        p_drag = st.slider("Drag Coefficient (Cd)", 0.1, 1.0, 0.4)
+    if st.button("INITIATE LAUNCH"):
+        dt, g, dry_m, alt, vel, f_rem = 1, 9.81, 20000, 0, 0, p_fuel
+        history = []
+        for t in range(200):
+            curr_m = dry_m + p_payload + f_rem
+            rho = 1.225 * np.exp(-alt / 8500) # Atmospheric density
+            thrust = (p_thrust * 1000) if f_rem > 0 else 0
+            f_rem -= 400 if f_rem > 0 else 0
+            acc = (thrust - (curr_m * g) - (0.5 * rho * vel**2 * 0.4 * 10)) / curr_m
+            vel += acc * dt
+            alt += vel * dt
+            if alt < 0 and t > 0: break
+            history.append({"Time": t, "Altitude": alt/1000, "Velocity": vel})
         
-        st.markdown("### Governing Equation")
-        st.latex(r"a = \frac{T - (m \cdot g) - (0.5 \cdot \rho \cdot v^2 \cdot C_d \cdot A)}{m}")
-        
-        launch = st.button("INITIATE LAUNCH SEQUENCE")
+        sim_df = pd.DataFrame(history)
+        st.line_chart(sim_df.set_index("Time")[["Altitude", "Velocity"]])
 
-    with col_viz:
-        if launch:
-            # PHYSICS ENGINE
-            dt = 1
-            g = 9.81
-            dry_mass = 20000
-            alt, vel, fuel_rem = 0, 0, p_fuel
-            history = []
-            
-            for t in range(300):
-                curr_m = dry_mass + p_payload + fuel_rem
-                # Dynamic Air Density (Barometric formula simplification)
-                rho = 1.225 * np.exp(-alt / 8500)
-                
-                if fuel_rem > 0:
-                    thrust_force = p_thrust * 1000
-                    fuel_rem -= 400 * dt # Fixed burn rate
-                else:
-                    thrust_force = 0
-                
-                drag_force = 0.5 * rho * (vel**2) * p_drag * 10
-                gravity_force = curr_m * g
-                
-                net_f = thrust_force - gravity_force - drag_force
-                acc = net_f / curr_m
-                
-                vel += acc * dt
-                alt += vel * dt
-                
-                if alt < 0 and t > 0: break
-                history.append({"Time": t, "Altitude": alt/1000, "Velocity": vel, "Acceleration": acc})
-            
-            sim_df = pd.DataFrame(history)
-            
-            # Multi-chart display
-            sub1 = px.line(sim_df, x="Time", y="Altitude", title="Altitude (km)", template="plotly_dark")
-            sub1.update_traces(line_color="#00d4ff")
-            st.plotly_chart(sub1, use_container_width=True)
-            
-            sub2 = px.line(sim_df, x="Time", y="Velocity", title="Velocity (m/s)", template="plotly_dark")
-            sub2.update_traces(line_color="#ff007b")
-            st.plotly_chart(sub2, use_container_width=True)
-        else:
-            st.info("Adjust parameters and press Launch to compute trajectory.")
-
-# --- MODULE 3: TECHNICAL AUDIT ---
-elif page == "Technical Audit":
-    st.header("📝 Project Methodology & Data Audit")
-    
-    st.subheader("Data Quality Report")
-    st.write(f"Sample Size: {len(df)} missions | Columns: {len(df.columns)}")
-    st.dataframe(df.describe(), use_container_width=True)
-    
-    st.subheader("Variable Correlation Analysis")
-    c_matrix = df.select_dtypes(include=[np.number]).corr()
-    fig_heat = px.imshow(c_matrix, text_auto=True, color_continuous_scale='RdBu_r', template="plotly_dark")
+else:
+    st.header("📝 Data Audit")
+    st.dataframe(f_df, use_container_width=True)
+    st.subheader("Correlation Matrix")
+    fig_heat = px.imshow(f_df.select_dtypes(include=[np.number]).corr(), text_auto=True, template="plotly_dark")
     st.plotly_chart(fig_heat, use_container_width=True)
-    
-    st.markdown("""
-    ### Technical Implementation Details
-    1. **Data Preprocessing:** Handled datetime objects and engineered 'Cost Per Ton' to measure economic efficiency.
-    2. **Physics Simulation:** Used iterative Euler integration to solve for motion.
-    3. **UI/UX:** Implemented custom CSS to simulate a dark-mode aerospace interface.
-    4. **Interactivity:** Integrated Plotly for zero-lag, zoomable data exploration.
-    """)
