@@ -1,9 +1,5 @@
 # 🚀 Rocket Launch Path Visualisation — Streamlit Web App
 
-A Year 1 Mathematics for AI project that turns real space mission data into an interactive dashboard. Built with Python and deployed on Streamlit Cloud.
-
----
-
 ## What it does
 
 This app lets you explore how different factors — fuel, payload weight, mission cost, crew size — connect to each other and to mission success. It also runs a physics-based rocket simulation using differential equations to model thrust, drag, and gravity over time.
